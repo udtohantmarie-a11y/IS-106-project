@@ -1,0 +1,6 @@
+# Disable script execution in this folder
+php_flag engine off
+<Files *.php>
+    Order Deny,Allow
+    Deny from all
+</Files>
