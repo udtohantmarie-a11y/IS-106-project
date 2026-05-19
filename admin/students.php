@@ -2,9 +2,10 @@
 require_once '../config/db.php';
 requireLogin('admin');
 
-// Handle Delete Logic
-if (isset($_POST['delete_id'])) {
+// Handle Delete Logic via Modal Form
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
     $id = (int)$_POST['delete_id'];
+    
     // Kunin muna ang user_id bago i-delete ang student record para mabura rin sa users table
     $stmt = $conn->prepare("SELECT user_id FROM students WHERE id = ?");
     $stmt->bind_param("i", $id);
@@ -15,7 +16,7 @@ if (isset($_POST['delete_id'])) {
         $user_id = $user['user_id'];
         // Burahin sa users table (mabubura na rin sa students dahil sa ON DELETE CASCADE)
         $conn->query("DELETE FROM users WHERE id = $user_id");
-        $msg = "Student account and associated data have been removed.";
+        $msg = "Student account and associated data have been removed successfully.";
     }
     header("Location: students.php?msg=" . urlencode($msg));
     exit();
@@ -57,6 +58,8 @@ include 'components/sidebar.php';
         background: #6c757d;
         text-transform: uppercase;
     }
+    .transition { transition: all 0.2s ease-in-out; }
+    .btn:hover { transform: translateY(-1px); }
 </style>
 
 <div class="main-content">
@@ -156,13 +159,14 @@ include 'components/sidebar.php';
                                                 Profile
                                             </a>
                                             
-                                            <!-- Delete Action -->
-                                            <form method="POST" onsubmit="return confirm('CRITICAL: Delete this student? This will permanently remove their user account, applications, and reviews.');">
-                                                <input type="hidden" name="delete_id" value="<?= $row['id'] ?>">
-                                                <button type="submit" class="btn btn-sm btn-white text-danger border rounded-pill px-2 shadow-sm transition" title="Delete Student">
-                                                    <i class="bi bi-trash3"></i>
-                                                </button>
-                                            </form>
+                                            <!-- Trigger Delete Modal -->
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-white text-danger border rounded-pill px-2 shadow-sm transition btn-delete-trigger" 
+                                                    data-id="<?= $row['id'] ?>" 
+                                                    data-name="<?= htmlspecialchars($row['full_name']) ?>"
+                                                    title="Delete Student">
+                                                <i class="bi bi-trash3"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -184,9 +188,55 @@ include 'components/sidebar.php';
     </div>
 </div>
 
-<style>
-    .transition { transition: all 0.2s ease-in-out; }
-    .btn:hover { transform: translateY(-1px); }
-</style>
+<!-- CRITICAL DELETE STUDENT ACCOUNT MODAL -->
+<div class="modal fade" id="deleteStudentModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 justify-content-end">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="">
+                <div class="modal-body p-4 pt-0 text-center text-dark">
+                    <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                        <i class="bi bi-exclamation-triangle-fill fs-2"></i>
+                    </div>
+                    <h5 class="fw-800 text-dark mb-2">Delete Account?</h5>
+                    <p class="text-muted small mb-3">
+                        Are you sure you want to remove <strong id="studentNameTarget" class="text-dark"></strong>? This will permanently delete their credentials, applications, and logs.
+                    </p>
+                    
+                    <!-- Hidden inputs to bind delete transaction target payload -->
+                    <input type="hidden" name="delete_id" id="studentIdTarget" value="">
+                </div>
+                <div class="modal-footer border-0 d-grid gap-2 pb-4 px-4 pt-0">
+                    <button type="submit" name="confirm_delete" class="btn btn-danger py-2 rounded-pill fw-bold shadow-sm">Permanently Delete</button>
+                    <button type="button" class="btn btn-light py-2 rounded-pill fw-bold text-secondary border" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 <?php include 'components/footer.php'; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteStudentModal'));
+    const nameTarget = document.getElementById('studentNameTarget');
+    const idTarget = document.getElementById('studentIdTarget');
+
+    // Click handler for modal attachment pipeline
+    document.querySelectorAll('.btn-delete-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const studentId = this.getAttribute('data-id');
+            const studentName = this.getAttribute('data-name');
+
+            // Inject current active student metadata targets into form wrapper
+            idTarget.value = studentId;
+            nameTarget.innerText = studentName;
+
+            deleteModal.show();
+        });
+    });
+});
+</script>

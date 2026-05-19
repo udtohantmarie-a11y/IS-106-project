@@ -92,6 +92,10 @@ include 'components/navbar.php';
         text-transform: uppercase;
         vertical-align: middle;
     }
+
+    /* Modal Stacking Layers Fix */
+    .modal { z-index: 2000 !important; }
+    .modal-backdrop { z-index: 1990 !important; }
 </style>
 
 <div class="container pb-5 mt-4">
@@ -105,7 +109,8 @@ include 'components/navbar.php';
             <button id="markAllRead" class="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold shadow-sm transition">
                 Mark all read
             </button>
-            <button id="clearHistory" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold shadow-sm transition">
+            <!-- Trigger Bootstrap Modal instead of native confirm drop handler -->
+            <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold shadow-sm transition" data-bs-toggle="modal" data-bs-target="#clearHistoryModal">
                 <i class="bi bi-trash3 me-1"></i> Clear History
             </button>
         </div>
@@ -180,7 +185,7 @@ include 'components/navbar.php';
                                     <div style="font-size: 0.65rem;"><?= date('h:i A', strtotime($row['created_at'])) ?></div>
                                 </td>
                                 <td class="text-end pe-4">
-                                    <a href="<?= $row['source'] == 'app' ? 'applicants.php' : 'feedbacks.php' ?>" 
+                                    <a href="../company/<?= $row['source'] == 'app' ? 'applicants.php' : 'feedbacks.php' ?>" 
                                        class="btn btn-sm btn-white border rounded-pill px-3 shadow-sm hover-primary fw-bold"
                                        style="font-size: 0.7rem;"
                                        onclick="markSingleRead(<?= $row['id'] ?>, '<?= $row['source'] ?>')">
@@ -206,7 +211,50 @@ include 'components/navbar.php';
     </div>
 </div>
 
+<!-- ACTIVITY LOG CLEAR HISTORY MODAL -->
+<div class="modal fade" id="clearHistoryModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 justify-content-end">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-0 text-center text-dark">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                    <i class="bi bi-trash-fill fs-2"></i>
+                </div>
+                <h5 class="fw-800 text-dark mb-2">Clear History?</h5>
+                <p class="text-muted small mb-0">
+                    Are you sure you want to flush your notification records? This operation is permanent and cannot be undone.
+                </p>
+            </div>
+            <div class="modal-footer border-0 d-grid gap-2 pb-4 px-4 pt-0">
+                <button type="button" id="confirmClearBtn" class="btn btn-danger py-2 rounded-pill fw-bold shadow-sm">Clear Log Archive</button>
+                <button type="button" class="btn btn-light py-2 rounded-pill fw-bold text-secondary border" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- FIRST LOAD BOOTSTRAP BUNDLE FRAMEWORK SCRIPT ASSET -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
+let singleClearHistoryModalInstance = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof bootstrap !== 'undefined') {
+        singleClearHistoryModalInstance = new bootstrap.Modal(document.getElementById('clearHistoryModal'));
+    }
+
+    // Connect confirm button to operational transaction pipeline
+    document.getElementById('confirmClearBtn').addEventListener('click', function() {
+        if (singleClearHistoryModalInstance) {
+            singleClearHistoryModalInstance->hide();
+        }
+        executeHistoryClearanceRoutine();
+    });
+});
+
 // Mark a single system notification as read when clicking "View"
 function markSingleRead(id, source) {
     if(source === 'system') {
@@ -223,23 +271,19 @@ document.getElementById('markAllRead').addEventListener('click', function() {
         });
 });
 
-// Clear History logic
-document.getElementById('clearHistory').addEventListener('click', function() {
-    if(confirm('Are you sure you want to clear your notification history? This action cannot be undone.')) {
-        fetch('api_clear_activity.php')
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    location.reload();
-                } else {
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(err => console.error('Error:', err));
-    }
-});
+// Segment isolation handler for processing AJAX transaction
+function executeHistoryClearanceRoutine() {
+    fetch('api_clear_activity.php')
+        .then(response => response.json())
+        .then(data => {
+            if(data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error: ' + data.message);
+            }
+        })
+        .catch(err => console.error('Error handling log clearance transmission:', err));
+}
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

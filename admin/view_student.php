@@ -26,7 +26,7 @@ if (!$student) {
 $app_count = $conn->query("SELECT COUNT(*) as total FROM applications WHERE student_id = $student_id")->fetch_assoc()['total'];
 $review_count = $conn->query("SELECT COUNT(*) as total FROM company_reviews WHERE student_id = $student_id")->fetch_assoc()['total'];
 
-// 3. Handle Ban/Unban Toggle
+// 3. Handle Ban/Unban Toggle via Modal Form
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_ban'])) {
     $new_status = $student['is_banned'] ? 0 : 1;
     $reason = $new_status ? 'Manually banned by administrator' : NULL;
@@ -73,6 +73,28 @@ include 'components/sidebar.php';
         margin: 0 auto;
         border: 4px solid #fff;
         box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    
+    /* Document Viewer Container Frame */
+    .doc-viewer-frame {
+        width: 100%;
+        height: 500px;
+        border: none;
+        border-radius: 12px;
+    }
+    .img-doc-preview {
+        max-width: 100%;
+        max-height: 500px;
+        object-fit: contain;
+        border-radius: 12px;
+    }
+
+    /* Z-INDEX LAYER FIX: Pinupuwersa ang modals at backdrops na lumitaw sa ibabaw ng kahit anong sidebar */
+    .modal {
+        z-index: 2000 !important;
+    }
+    .modal-backdrop {
+        z-index: 1990 !important;
     }
 </style>
 
@@ -133,13 +155,15 @@ include 'components/sidebar.php';
                         </div>
                     </div>
 
+                    <!-- Trigger Status Modal Button -->
                     <div class="mt-4 pt-2">
-                        <form method="POST" onsubmit="return confirm('Change account access for this student?');">
-                            <button type="submit" name="toggle_ban" class="btn <?= $student['is_banned'] ? 'btn-success' : 'btn-danger' ?> w-100 rounded-pill fw-bold py-2 shadow-sm transition">
-                                <i class="bi bi-<?= $student['is_banned'] ? 'check-circle' : 'slash-circle' ?> me-2"></i>
-                                <?= $student['is_banned'] ? 'Unban Account' : 'Ban Account' ?>
-                            </button>
-                        </form>
+                        <button type="button" 
+                                class="btn <?= $student['is_banned'] ? 'btn-success' : 'btn-danger' ?> w-100 rounded-pill fw-bold py-2 shadow-sm transition"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#banToggleModal">
+                            <i class="bi bi-<?= $student['is_banned'] ? 'check-circle' : 'slash-circle' ?> me-2"></i>
+                            <?= $student['is_banned'] ? 'Unban Account' : 'Ban Account' ?>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -180,15 +204,16 @@ include 'components/sidebar.php';
                     </div>
                 </div>
 
-                <!-- ID Card Viewer -->
+                <!-- ID Card Viewer Container -->
                 <div class="card border-0 shadow-sm rounded-4 p-4 bg-white">
                     <h5 class="fw-800 text-dark mb-3"><i class="bi bi-card-image text-primary me-2"></i>Verification Document</h5>
                     <?php if ($student['resume_path']): ?>
                         <div class="p-3 bg-light rounded-4 border text-center">
                             <p class="small text-muted mb-3">The student submitted this document for identity validation.</p>
-                            <a href="../uploads/ids/<?= $student['resume_path'] ?>" target="_blank" class="btn btn-outline-primary rounded-pill px-4 fw-bold shadow-sm">
-                                <i class="bi bi-fullscreen me-2"></i>View Submitted ID
-                            </a>
+                            <!-- Trigger Document View Modal -->
+                            <button type="button" class="btn btn-outline-primary rounded-pill px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#viewIdModal">
+                                <i class="bi bi-eye-fill me-2"></i>View Submitted ID
+                            </button>
                         </div>
                     <?php else: ?>
                         <div class="text-center py-4">
@@ -201,5 +226,73 @@ include 'components/sidebar.php';
         </div>
     </div>
 </div>
+
+<!-- BAN / UNBAN TOGGLE MODAL -->
+<div class="modal fade" id="banToggleModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 justify-content-end">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="">
+                <div class="modal-body p-4 pt-0 text-center text-dark">
+                    <?php if ($student['is_banned']): ?>
+                        <div class="bg-success bg-opacity-10 text-success rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                            <i class="bi bi-check-circle-fill fs-2"></i>
+                        </div>
+                        <h5 class="fw-800 text-dark mb-2">Unban Account?</h5>
+                        <p class="text-muted small mb-0">
+                            Are you sure you want to restore access for <strong class="text-dark"><?= htmlspecialchars($student['full_name']) ?></strong>? This will re-enable all student platform privileges.
+                        </p>
+                    <?php else: ?>
+                        <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                            <i class="bi bi-slash-circle-fill fs-2"></i>
+                        </div>
+                        <h5 class="fw-800 text-dark mb-2">Ban Account?</h5>
+                        <p class="text-muted small mb-0">
+                            Are you sure you want to restrict <strong class="text-dark"><?= htmlspecialchars($student['full_name']) ?></strong>? The student will be immediately blocked from accessing their account.
+                        </p>
+                    <?php endif; ?>
+                </div>
+                <div class="modal-footer border-0 d-grid gap-2 pb-4 px-4 pt-0">
+                    <button type="submit" name="toggle_ban" class="btn <?= $student['is_banned'] ? 'btn-success' : 'btn-danger' ?> py-2 rounded-pill fw-bold shadow-sm">
+                        <?= $student['is_banned'] ? 'Confirm Unban' : 'Confirm Ban' ?>
+                    </button>
+                    <button type="button" class="btn btn-light py-2 rounded-pill fw-bold text-secondary border" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- SUBMITTED ID DOCUMENT VIEW MODAL -->
+<?php if ($student['resume_path']): ?>
+<div class="modal fade" id="viewIdModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-800 text-dark mb-0"><i class="bi bi-shield-identity text-primary me-2"></i>Verification Attachment Preview</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <?php 
+                    $file_ext = strtolower(pathinfo($student['resume_path'], PATHINFO_EXTENSION));
+                    if ($file_ext === 'pdf'): 
+                ?>
+                    <iframe src="../uploads/ids/<?= htmlspecialchars($student['resume_path']) ?>" class="doc-viewer-frame"></iframe>
+                <?php else: ?>
+                    <img src="../uploads/ids/<?= htmlspecialchars($student['resume_path']) ?>" class="img-doc-preview shadow-sm border" alt="Verification Identity Document">
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer border-0 justify-content-end pb-4 px-4 pt-0">
+                <a href="../uploads/ids/<?= htmlspecialchars($student['resume_path']) ?>" download class="btn btn-light px-4 rounded-pill fw-bold text-dark border small shadow-none">
+                    <i class="bi bi-download me-1"></i> Download File
+                </a>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill fw-bold small shadow-sm" data-bs-dismiss="modal">Close View</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php include 'components/footer.php'; ?>

@@ -57,6 +57,10 @@ include 'components/sidebar.php';
         font-size: 0.75rem;
         font-weight: bold;
     }
+
+    /* Modal Layer Stacking Fix */
+    .modal { z-index: 2000 !important; }
+    .modal-backdrop { z-index: 1990 !important; }
 </style>
 
 <main class="main-content">
@@ -125,8 +129,10 @@ include 'components/sidebar.php';
                                             <a href="job_details.php?id=<?= $row['id'] ?>" class="btn btn-sm btn-light border rounded-pill px-3 fw-bold small text-primary shadow-sm">
                                                 Details
                                             </a>
-                                            <!-- Remove from wishlist button -->
-                                            <button class="btn btn-sm btn-white text-danger border rounded-pill px-3 fw-bold small shadow-sm" onclick="removeFromWishlist(<?= $row['id'] ?>)">
+                                            <!-- Trigger Remove Confirmation Modal -->
+                                            <button type="button" class="btn btn-sm btn-white text-danger border rounded-pill px-3 fw-bold small shadow-sm btn-remove-trigger" 
+                                                    data-id="<?= $row['id'] ?>" 
+                                                    data-title="<?= htmlspecialchars($row['title']) ?>">
                                                 Remove
                                             </button>
                                         </div>
@@ -153,26 +159,78 @@ include 'components/sidebar.php';
     </div>
 </main>
 
+<!-- WISHLIST REMOVE CONFIRMATION MODAL -->
+<div class="modal fade" id="removeWishlistModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 24px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 justify-content-end">
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 pt-0 text-center text-dark">
+                <div class="bg-danger bg-opacity-10 text-danger rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 70px; height: 70px;">
+                    <i class="bi bi-heartbreak-fill fs-2"></i>
+                </div>
+                <h5 class="fw-800 text-dark mb-2">Remove Job?</h5>
+                <p class="text-muted small mb-0">
+                    Are you sure you want to remove <strong id="jobTitleTarget" class="text-dark"></strong> from your collection?
+                </p>
+                <input type="hidden" id="jobIdTarget" value="">
+            </div>
+            <div class="modal-footer border-0 d-grid gap-2 pb-4 px-4 pt-0">
+                <button type="button" id="confirmRemoveBtn" class="btn btn-danger py-2 rounded-pill fw-bold shadow-sm">Remove from Saved</button>
+                <button type="button" class="btn btn-light py-2 rounded-pill fw-bold text-secondary border" data-bs-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    // AJAX Function para mag-remove sa wishlist nang hindi nire-refresh ang page
-    function removeFromWishlist(jobId) {
-        if(confirm('Remove this job from your saved list?')) {
-            fetch('api_wishlist.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `job_id=${jobId}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === 'removed') {
-                    window.location.reload();
-                }
+    let removeModal;
+    let activeJobId = null;
+
+    document.addEventListener('DOMContentLoaded', function() {
+        removeModal = new bootstrap.Modal(document.getElementById('removeWishlistModal'));
+        const jobTitleTarget = document.getElementById('jobTitleTarget');
+        const confirmRemoveBtn = document.getElementById('confirmRemoveBtn');
+
+        // Modal event binding trigger via loop orchestration
+        document.querySelectorAll('.btn-remove-trigger').forEach(btn => {
+            btn.addEventListener('click', function() {
+                activeJobId = this.getAttribute('data-id');
+                const jobTitle = this.getAttribute('data-title');
+
+                jobTitleTarget.innerText = jobTitle;
+                removeModal.show();
             });
-        }
+        });
+
+        // Event consumer execution handling for modal confirmation transaction
+        confirmRemoveBtn.addEventListener('click', function() {
+            if (activeJobId) {
+                removeModal.hide();
+                executeRemovalTransaction(activeJobId);
+            }
+        });
+    });
+
+    // AJAX core routine endpoint dispatcher payload configuration
+    function executeRemovalTransaction(jobId) {
+        fetch('api_wishlist.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `job_id=${jobId}`
+        })
+        .select = response => response.json()
+        .then(data => {
+            if (data.status === 'removed') {
+                window.location.reload();
+            }
+        })
+        .catch(err => console.error('Error handling AJAX payload:', err));
     }
 
-    // Sidebar Logic
+    // Sidebar Logic modules control structure routing
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     const openBtn = document.getElementById('openSidebar');

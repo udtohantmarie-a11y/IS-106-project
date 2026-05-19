@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['delete_account'])) {
         if ($student_data['profile_photo']) @unlink("../uploads/profile_photos/" . $student_data['profile_photo']);
         if ($student_data['resume_path']) @unlink("../uploads/ids/" . $student_data['resume_path']);
 
-        // Delete from users table (Cascade will handle 'students', 'applications', 'wishlist' if FK is set correctly)
+        // Delete from users table
         $conn->query("DELETE FROM users WHERE id = '$user_id'");
         
         session_destroy();
@@ -118,6 +118,14 @@ include 'components/sidebar.php';
     .profile-avatar-img { width: 100%; height: 100%; object-fit: cover; border: 4px solid #fff; }
     .photo-upload-btn { position: absolute; bottom: 0; right: 0; background: #0d6efd; color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid #fff; }
     .danger-zone { border: 1px solid #fee2e2; background-color: #fffafb; }
+    
+    /* Document Inline Viewer Styles */
+    .id-embed-frame { width: 100%; height: 450px; border: none; border-radius: 12px; }
+    .id-img-preview { max-width: 100%; max-height: 450px; object-fit: contain; border-radius: 12px; }
+
+    /* Stacking Layers Over Sidebar Control Context */
+    .modal { z-index: 2000 !important; }
+    .modal-backdrop { z-index: 1990 !important; }
 </style>
 
 <main class="main-content">
@@ -145,7 +153,7 @@ include 'components/sidebar.php';
                                 </div>
                             <?php endif; ?>
                             
-                            <label for="photoUpload" class="photo-upload-btn shadow-sm">
+                            <label class="photo-upload-btn shadow-sm" for="photoUpload">
                                 <i class="bi bi-camera-fill"></i>
                             </label>
                             <form id="photoForm" action="" method="POST" enctype="multipart/form-data" class="d-none">
@@ -204,12 +212,15 @@ include 'components/sidebar.php';
                                 <div>
                                     <div class="fw-bold small">Valid ID Submitted</div>
                                     <span class="<?= $student['is_verified'] == 1 ? 'text-success' : 'text-warning' ?> small fw-bold">
-                                        <i class="bi <?= $student['is_verified'] == 1 ? 'bi-check2-circle' : 'bi-clock-history' ?> me-1"></i>
+                                        <i class="bi bi-<?= $student['is_verified'] == 1 ? 'check2-circle' : 'clock-history' ?> me-1"></i>
                                         <?= $student['is_verified'] == 1 ? 'Verified' : 'Pending Review' ?>
                                     </span>
                                 </div>
                             </div>
-                            <a href="../uploads/ids/<?= $student['resume_path'] ?>" class="btn btn-sm btn-white border px-3 rounded-pill fw-bold w-100" target="_blank">View ID</a>
+                            <!-- Inline Modal Toggle Button -->
+                            <button type="button" class="btn btn-sm btn-white border px-3 rounded-pill fw-bold w-100 shadow-sm mb-1" data-bs-toggle="modal" data-bs-target="#viewStudentIdModal">
+                                <i class="bi bi-eye-fill me-1"></i> View Submitted ID
+                            </button>
                         </div>
                     <?php endif; ?>
 
@@ -228,7 +239,7 @@ include 'components/sidebar.php';
                 <div class="card p-4 border-0 shadow-sm rounded-4 danger-zone">
                     <h6 class="fw-bold text-danger mb-3"><i class="bi bi-exclamation-triangle-fill me-2"></i>Danger Zone</h6>
                     <p class="text-muted small">Once you delete your account, there is no going back. Please be certain.</p>
-                    <button type="button" class="btn btn-outline-danger btn-sm rounded-pill fw-bold px-4" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
+                    <button type="button" class="btn pointer btn-outline-danger btn-sm rounded-pill fw-bold px-4" data-bs-toggle="modal" data-bs-target="#deleteAccountModal">
                         Delete My Account
                     </button>
                 </div>
@@ -236,6 +247,33 @@ include 'components/sidebar.php';
         </div>
     </div>
 </main>
+
+<!-- Submitted ID Document Preview Modal -->
+<?php if ($student['resume_path']): ?>
+<div class="modal fade" id="viewStudentIdModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-800 text-dark mb-0"><i class="bi bi-card-image text-primary me-2"></i>My Verification Document</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <?php 
+                    $file_ext = strtolower(pathinfo($student['resume_path'], PATHINFO_EXTENSION));
+                    if ($file_ext === 'pdf'): 
+                ?>
+                    <iframe src="../uploads/ids/<?= htmlspecialchars($student['resume_path']) ?>" class="id-embed-frame"></iframe>
+                <?php else: ?>
+                    <img src="../uploads/ids/<?= htmlspecialchars($student['resume_path']) ?>" class="id-img-preview shadow-sm border" alt="Identity Verification Document">
+                <?php endif; ?>
+            </div>
+            <div class="modal-footer border-0 justify-content-end pb-4 px-4 pt-0">
+                <button type="button" class="btn btn-secondary px-4 rounded-pill fw-bold small shadow-sm" data-bs-dismiss="modal">Close View</button>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <!-- Delete Account Modal -->
 <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">

@@ -81,6 +81,26 @@ include 'components/sidebar.php';
         background: #0d6efd;
         font-size: 0.9rem;
     }
+    .transition { transition: all 0.2s ease-in-out; }
+    .btn-circle-action:hover { transform: scale(1.08); }
+    
+    /* Inline Document View Embed Frames */
+    .id-embed-frame {
+        width: 100%;
+        height: 480px;
+        border: none;
+        border-radius: 12px;
+    }
+    .id-img-preview {
+        max-width: 100%;
+        max-height: 480px;
+        object-fit: contain;
+        border-radius: 12px;
+    }
+
+    /* Stacking layers to guarantee modal overlay is above navigation modules */
+    .modal { z-index: 2000 !important; }
+    .modal-backdrop { z-index: 1990 !important; }
 </style>
 
 <div class="main-content">
@@ -145,9 +165,13 @@ include 'components/sidebar.php';
                                         </div>
                                     </td>
                                     <td>
-                                        <a href="../uploads/ids/<?= $row['resume_path'] ?>" target="_blank" class="btn btn-sm btn-light border px-3 rounded-pill fw-bold text-primary shadow-sm">
+                                        <!-- Open Verification Document Inline Modal Triggers -->
+                                        <button type="button" 
+                                                class="btn btn-sm btn-light border px-3 rounded-pill fw-bold text-primary shadow-sm transition btn-view-id-trigger"
+                                                data-filepath="<?= htmlspecialchars($row['resume_path']) ?>"
+                                                data-name="<?= htmlspecialchars($row['full_name']) ?>">
                                             <i class="bi bi-file-earmark-text me-1"></i> View ID Card
-                                        </a>
+                                        </button>
                                     </td>
                                     <td>
                                         <?php if ($row['is_verified'] == 1): ?>
@@ -163,14 +187,14 @@ include 'components/sidebar.php';
                                     <td class="text-center">
                                         <?php if ($row['is_verified'] == 0): ?>
                                             <div class="d-flex justify-content-center gap-2">
-                                                <form method="POST" class="d-inline">
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Verify identification record for this student?');">
                                                     <input type="hidden" name="id" value="<?= $row['id'] ?>">
-                                                    <button type="submit" name="action" value="approve" class="btn btn-success btn-sm rounded-circle shadow-sm p-0 d-flex align-items-center justify-content-center" style="width: 32px; height: 32px;" title="Approve ID">
+                                                    <button type="submit" name="action" value="approve" class="btn btn-success btn-sm rounded-circle shadow-sm p-0 d-flex align-items-center justify-content-center btn-circle-action transition" style="width: 32px; height: 32px;" title="Approve ID">
                                                         <i class="bi bi-check-lg"></i>
                                                     </button>
                                                 </form>
                                                 
-                                                <button type="button" class="btn btn-danger btn-sm rounded-circle shadow-sm p-0 d-flex align-items-center justify-content-center" 
+                                                <button type="button" class="btn btn-danger btn-sm rounded-circle shadow-sm p-0 d-flex align-items-center justify-content-center btn-circle-action transition" 
                                                         style="width: 32px; height: 32px;" title="Reject ID" 
                                                         onclick="openRejectModal(<?= $row['id'] ?>, '<?= htmlspecialchars($row['full_name'], ENT_QUOTES) ?>')">
                                                     <i class="bi bi-x-lg"></i>
@@ -188,7 +212,7 @@ include 'components/sidebar.php';
                             <tr>
                                 <td colspan="4" class="text-center py-5">
                                     <div class="py-5">
-                                        <i class="bi bi-shield-slash display-1 text-light"></i>
+                                        <i class="bi bi-shadows display-1 text-light opacity-50"></i>
                                         <p class="text-muted mt-3 mb-0">No student IDs waiting for verification.</p>
                                     </div>
                                 </td>
@@ -196,6 +220,27 @@ include 'components/sidebar.php';
                         <?php endif; ?>
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Identity Document Preview Modal -->
+<div class="modal fade" id="viewIdCardModal" tabindex="-1" aria-hidden="true" data-bs-focus="false">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+            <div class="modal-header border-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-800 text-dark mb-0"><i class="bi bi-card-image text-primary me-2"></i>Document Attachment Preview</h5>
+                <button type="button" class="btn-close shadow-none" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center" id="idCardModalBody">
+                <!-- Content injected dynamically via javascript pipeline -->
+            </div>
+            <div class="modal-footer border-0 justify-content-end pb-4 px-4 pt-0">
+                <a href="#" id="downloadIdBtn" download class="btn btn-light px-4 rounded-pill fw-bold text-dark border small shadow-none">
+                    <i class="bi bi-download me-1"></i> Download Document
+                </a>
+                <button type="button" class="btn btn-secondary px-4 rounded-pill fw-bold small shadow-sm" data-bs-dismiss="modal">Close View</button>
             </div>
         </div>
     </div>
@@ -243,8 +288,35 @@ include 'components/sidebar.php';
 
 <script>
 let rejectModal;
+let viewIdModal;
+
 document.addEventListener('DOMContentLoaded', function() {
     rejectModal = new bootstrap.Modal(document.getElementById('rejectModal'));
+    viewIdModal = new bootstrap.Modal(document.getElementById('viewIdCardModal'));
+
+    // Click handler connection for inline file preview orchestration
+    document.querySelectorAll('.btn-view-id-trigger').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const filepath = this.getAttribute('data-filepath');
+            const studentName = this.getAttribute('data-name');
+            
+            const modalBody = document.getElementById('idCardModalBody');
+            const downloadBtn = document.getElementById('downloadIdBtn');
+            
+            const fullUrl = "../uploads/ids/" + filepath;
+            downloadBtn.href = fullUrl;
+
+            const fileExt = filepath.split('.').pop().toLowerCase();
+            
+            if (fileExt === 'pdf') {
+                modalBody.innerHTML = `<iframe src="${fullUrl}" class="id-embed-frame"></iframe>`;
+            } else {
+                modalBody.innerHTML = `<img src="${fullUrl}" class="id-img-preview shadow-sm border" alt="ID Document for ${studentName}">`;
+            }
+
+            viewIdModal.show();
+        });
+    });
 });
 
 function openRejectModal(id, name) {

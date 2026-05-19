@@ -221,7 +221,7 @@ $all_listings = $conn->query("SELECT id, title FROM job_listings WHERE company_i
                                     <?php if (!empty($app['application_resume'])): ?>
                                         <a href="../uploads/resumes/<?= htmlspecialchars($app['application_resume']) ?>" 
                                            target="_blank" 
-                                           class="btn btn-sm btn-outline-primary px-3 rounded-pill fw-bold" style="font-size: 0.7rem;">
+                                           class="btn btn-sm btn-light border px-3 rounded-pill fw-bold text-primary shadow-sm" style="font-size: 0.7rem;">
                                             <i class="bi bi-file-earmark-pdf me-1"></i> Resume
                                         </a>
                                     <?php else: ?>
@@ -290,10 +290,19 @@ $all_listings = $conn->query("SELECT id, title FROM job_listings WHERE company_i
     </div>
 </div>
 
+<!-- INCLUSION OF BOOTSTRAP BUNDLE JS TO PREVENT TYPE ERRORS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
-    let myModal;
+    let myModal = null;
+
+    // Secure operational attachment via DOM ready logic execution pipeline
     document.addEventListener('DOMContentLoaded', function() {
-        myModal = new bootstrap.Modal(document.getElementById('statusModal'));
+        if (typeof bootstrap !== 'undefined') {
+            myModal = new bootstrap.Modal(document.getElementById('statusModal'));
+        } else {
+            console.error("Bootstrap JS framework asset load failure exception.");
+        }
     });
 
     function openStatusModal(id, currentStatus, name, note) {
@@ -302,7 +311,16 @@ $all_listings = $conn->query("SELECT id, title FROM job_listings WHERE company_i
         document.getElementById('studentName').innerText = name;
         document.getElementById('rejectionNote').value = note;
         toggleRejectionNote();
-        myModal.show();
+        
+        if (myModal) {
+            myModal.show();
+        } else if (typeof bootstrap !== 'undefined') {
+            // Backup runtime instance initialization target path fallback logic
+            myModal = new bootstrap.Modal(document.getElementById('statusModal'));
+            myModal.show();
+        } else {
+            alert("Unable to open window container action: Bootstrap library asset missing.");
+        }
     }
 
     function toggleRejectionNote() {
